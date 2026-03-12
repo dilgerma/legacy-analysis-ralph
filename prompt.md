@@ -1,7 +1,9 @@
-# Event Modeling AI: Iterative Analysis Loop
+# Event Modeling AI: State Machine Execution
+
+**Read Claude.md first** - it defines who you are, core concepts, Event Modeling rules, and the complete JSON schema.
 
 ## Mission
-Execute ONE iteration of the Event Modeling analysis state machine. Each run performs a single step, then stops. Run this repeatedly to build progressively detailed, recursive flow models.
+Execute ONE iteration of the Event Modeling analysis state machine. Each run performs a single step, then stops. Run repeatedly to build progressively detailed, recursive flow models.
 
 ---
 
@@ -11,23 +13,27 @@ Execute steps in order. **Stop after completing the first applicable step.**
 
 ### State 1: High-Level Analysis Missing
 **Condition:** `analysis/high-level-analysis.json` does NOT exist
+
 **Action:**
-1. Analyze the entire system to identify all high-level use cases
-2. Create Event Model following high-level analysis rules:
-   - Skip field definitions in elements (empty arrays)
-   - Skip specifications (empty arrays)
-   - Model complete flow with all slices
-   - Focus on business processes and flow structure
-3. Create `analysis/` folder if it doesn't exist
-4. Write results to `analysis/high-level-analysis.json`
-5. **STOP - iteration complete**
+1. Analyze source code to identify all high-level business use cases (not technical use cases)
+2. Create Event Model with:
+   - Empty field arrays `[]` in all elements
+   - Empty specifications arrays `[]` in all slices
+   - Complete flow structure with all slices and dependencies
+   - Focus on business processes and sequence
+3. Create `analysis/` folder if needed
+4. Write to `analysis/high-level-analysis.json`
+5. **STOP**
+
+---
 
 ### State 2: Flows Catalog Missing
 **Condition:** `analysis/high-level-analysis.json` EXISTS, `analysis/flows.json` does NOT exist
+
 **Action:**
 1. Read `analysis/high-level-analysis.json`
-2. Identify all distinct business flows/use cases from the analysis
-3. Create `analysis/flows.json` with structure:
+2. Identify all distinct business flows/use cases
+3. Create `analysis/flows.json`:
 ```json
 {
   "flows": [
@@ -41,101 +47,137 @@ Execute steps in order. **Stop after completing the first applicable step.**
   ]
 }
 ```
-4. **STOP - iteration complete**
+4. **STOP**
+
+---
 
 ### State 3: Flow High-Level Analysis
 **Condition:** At least one flow has `status: "open"` AND its folder does NOT contain `high-level-analysis.json`
+
 **Action:**
-1. Find the FIRST flow with `status: "open"` that needs high-level analysis
-2. Create folder `analysis/{folder}/` if it doesn't exist
-3. Analyze this specific flow at a high level to discover sub-flows:
-   - Skip field definitions in elements (empty arrays)
-   - Skip specifications (empty arrays)
-   - Model the complete flow structure
+1. Find FIRST flow with `status: "open"` needing high-level analysis
+2. Create `analysis/{folder}/` if needed
+3. Analyze this specific flow to discover sub-flows:
+   - Empty field arrays `[]` in elements
+   - Empty specifications arrays `[]`
+   - Model complete flow structure
    - Identify sub-flows within this flow
-4. Write results to `analysis/{folder}/high-level-analysis.json`
-5. **STOP - iteration complete**
+4. Write to `analysis/{folder}/high-level-analysis.json`
+5. **STOP**
+
+---
 
 ### State 4: Sub-Flows Catalog Missing
-**Condition:** A flow has `analysis/{folder}/high-level-analysis.json` BUT NOT `analysis/{folder}/flows.json`
+**Condition:** Flow has `analysis/{folder}/high-level-analysis.json` BUT NOT `analysis/{folder}/flows.json`
+
 **Action:**
-1. Find the FIRST flow folder with this condition
+1. Find FIRST flow folder with this condition
 2. Read `analysis/{folder}/high-level-analysis.json`
-3. Identify distinct sub-flows from the analysis
-4. If sub-flows found, create `analysis/{folder}/flows.json`:
-```json
-{
-  "flows": [
-    {
-      "name": "Sub-Flow Name",
-      "folder": "sub-flow-name-kebab-case",
-      "status": "open",
-      "description": "Brief description",
-      "depth": 1
-    }
-  ]
-}
-```
-5. If NO sub-flows found (this is a leaf flow), create empty `analysis/{folder}/flows.json`:
-```json
-{
-  "flows": []
-}
-```
-6. **STOP - iteration complete**
+3. Identify distinct sub-flows
+4. Create `analysis/{folder}/flows.json`:
+   - If sub-flows found:
+   ```json
+   {
+     "flows": [
+       {
+         "name": "Sub-Flow Name",
+         "folder": "sub-flow-name-kebab-case",
+         "status": "open",
+         "description": "Brief description",
+         "depth": 1
+       }
+     ]
+   }
+   ```
+   - If NO sub-flows (leaf flow):
+   ```json
+   {
+     "flows": []
+   }
+   ```
+5. **STOP**
 
-### State 5: Detailed Flow Analysis
-**Condition:** A flow has `analysis/{folder}/flows.json` with empty array BUT NOT `analysis/{folder}/config.json`
-**Action:**
-1. Find the FIRST flow folder with this condition (it's a leaf flow)
-2. Analyze this specific flow in detail:
-   - Include ALL field definitions with examples
-   - Include specifications (Given/When/Then) from tests
-   - Include code references in descriptions
-   - Follow complete detailed flow analysis rules
-3. Write detailed analysis to `analysis/{folder}/config.json`
-4. Update parent's `analysis/flows.json` to mark this flow's status as `"completed"`
-5. **STOP - iteration complete**
+---
 
-### State 6: All Sub-Flows Complete
-**Condition:** A flow at depth N has all its sub-flows `"completed"` BUT the parent flow itself is NOT marked `"completed"`
+### State 5: Detailed Flow Analysis (Leaf Flow)
+**Condition:** Flow has `analysis/{folder}/flows.json` with empty array BUT NOT `analysis/{folder}/config.json`
+
 **Action:**
-1. Find the FIRST flow where all sub-flows are completed
+1. Find FIRST leaf flow folder with this condition
+2. Perform detailed analysis:
+   - Include ALL field definitions with types and examples
+   - Extract specifications (Given/When/Then) from tests
+   - Add code references in `description` fields (classes, packages, modules)
+   - Follow all Event Modeling rules from Claude.md
+3. Write to `analysis/{folder}/config.json`
+4. Update parent's `analysis/flows.json`: mark this flow's status as `"completed"`
+5. **STOP**
+
+---
+
+### State 6: Aggregate Parent Flow
+**Condition:** Flow at depth N has all sub-flows `"completed"` BUT parent flow NOT marked `"completed"`
+
+**Action:**
+1. Find FIRST flow where all sub-flows are completed
 2. Create `analysis/{folder}/config.json` aggregating all sub-flow information
-3. Mark this flow as `"completed"` in its parent's `analysis/flows.json`
-4. **STOP - iteration complete**
+3. Mark this flow as `"completed"` in parent's `analysis/flows.json`
+4. **STOP**
+
+---
 
 ### State 7: All Complete
 **Condition:** Root `analysis/flows.json` EXISTS and ALL flows (recursively) have `status: "completed"`
+
 **Action:**
 1. Report: "All flows analyzed recursively. Analysis complete."
 2. Output `<promise>COMPLETE</promise>`
-3. **STOP - no more work**
+3. **STOP**
 
 ---
 
-## Analysis Rules
+## Analysis Depth Modes
 
-### High-Level Analysis (State 1)
-- **Goal:** Quick overview of the entire system
-- **Elements:** Define structure but leave fields empty `[]`
+### High-Level Analysis (States 1, 3)
+- **Goal:** Quick overview, discover flows/sub-flows
+- **Elements:** Structure defined, fields empty `[]`
 - **Specifications:** Empty arrays `[]`
 - **Focus:** Slice types, dependencies, flow sequence, aggregates
-- **Output:** `analysis/high-level-analysis.json` in analysis folder
+- **Output:** `high-level-analysis.json`
 
-### Detailed Flow Analysis (State 5)
-- **Goal:** Deep dive into one specific business flow
-- **Elements:** Full field definitions with types and examples
-- **Specifications:** Extract Given/When/Then from unit tests
-- **Code References:** Add in `description` field (classes, packages, modules)
+### Detailed Analysis (State 5)
+- **Goal:** Deep dive into specific leaf flow
+- **Elements:** Full field definitions with types, examples, cardinality
+- **Specifications:** Extract Given/When/Then from unit tests (business rules only, not simple validations)
+- **Code References:** Add in `description` field (full qualified class names, packages, modules)
 - **Focus:** Data structures, business rules, precise behavior
-- **Output:** `analysis/{folder}/config.json` inside flow-specific folder within analysis
+- **Output:** `config.json`
 
 ---
 
-## Element Structure Reference
+## File Structure Reference
 
-### High-Level Analysis Element (empty fields)
+```
+analysis/
+├── high-level-analysis.json          # State 1 output
+├── flows.json                         # State 2 output
+├── flow-1/                            # Depth 0 flow
+│   ├── high-level-analysis.json       # State 3 output
+│   ├── flows.json                     # State 4 output
+│   ├── sub-flow-1/                    # Depth 1 flow
+│   │   ├── high-level-analysis.json
+│   │   ├── flows.json (empty array)   # Leaf flow marker
+│   │   └── config.json                # State 5 output
+│   └── config.json                    # State 6 output (aggregated)
+└── flow-2/
+    └── ...
+```
+
+---
+
+## Element Examples by Analysis Mode
+
+### High-Level Element (empty fields)
 ```json
 {
   "id": "cmd-add-item",
@@ -147,7 +189,7 @@ Execute steps in order. **Stop after completing the first applicable step.**
 }
 ```
 
-### Detailed Analysis Element (with fields)
+### Detailed Element (with fields)
 ```json
 {
   "id": "cmd-add-item",
@@ -176,361 +218,53 @@ Execute steps in order. **Stop after completing the first applicable step.**
 
 ---
 
-## JSON Schema Compliance
+## Execution Protocol
 
-All output must follow this complete JSON schema:
+1. **Determine Current State:**
+   - Check which files exist in `analysis/` folder
+   - Check flow statuses in `flows.json` files
+   - Identify first applicable state condition
 
-```json
-{
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "type": "object",
-  "properties": {
-    "slices": {
-      "type": "array",
-      "items": { "$ref": "#/$defs/Slice" }
-    }
-  },
-  "required": ["slices"],
-  "additionalProperties": false,
-
-  "$defs": {
-    "Slice": {
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "status": {
-          "type": "string",
-          "enum": ["Created", "Done", "InProgress"]
-        },
-        "index": { "type": "integer" },
-        "title": { "type": "string" },
-        "context": { "type": "string" },
-        "sliceType": {
-          "type": "string",
-          "enum": ["STATE_CHANGE", "STATE_VIEW", "AUTOMATION"]
-        },
-        "commands": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/Element" }
-        },
-        "events": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/Element" }
-        },
-        "readmodels": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/Element" }
-        },
-        "screens": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/Element" }
-        },
-        "screenImages": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/ScreenImage" }
-        },
-        "processors": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/Element" }
-        },
-        "tables": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/Table" }
-        },
-        "specifications": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/Specification" }
-        },
-        "actors": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/Actor" }
-        },
-        "aggregates": {
-          "type": "array",
-          "items": { "type": "string" }
-        }
-      },
-      "required": [
-        "id",
-        "title",
-        "sliceType",
-        "commands",
-        "events",
-        "readmodels",
-        "screens",
-        "processors",
-        "tables",
-        "specifications"
-      ],
-      "additionalProperties": false
-    },
-
-    "Element": {
-      "type": "object",
-      "properties": {
-        "groupId": { "type": "string" },
-        "id": { "type": "string" },
-        "tags": {
-          "type": "array",
-          "items": { "type": "string" }
-        },
-        "domain": { "type": "string" },
-        "modelContext": { "type": "string" },
-        "context": {
-          "type": "string",
-          "enum": ["INTERNAL", "EXTERNAL"]
-        },
-        "slice": { "type": "string" },
-        "title": { "type": "string" },
-        "fields": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/Field" }
-        },
-        "type": {
-          "type": "string",
-          "enum": ["COMMAND", "EVENT", "READMODEL", "SCREEN", "AUTOMATION"]
-        },
-        "description": { "type": "string" },
-        "aggregate": { "type": "string" },
-        "aggregateDependencies": {
-          "type": "array",
-          "items": { "type": "string" }
-        },
-        "dependencies": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/Dependency" }
-        },
-        "apiEndpoint": { "type": "string" },
-        "service": {
-          "type": ["string", "null"]
-        },
-        "createsAggregate": { "type": "boolean" },
-        "triggers": {
-          "type": "array",
-          "items": { "type": "string" }
-        },
-        "sketched": { "type": "boolean" },
-        "prototype": { "type": "object" },
-        "listElement": { "type": "boolean" }
-      },
-      "required": ["id", "title", "fields", "type", "dependencies"],
-      "additionalProperties": false
-    },
-
-    "ScreenImage": {
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "title": { "type": "string" },
-        "url": { "type": "string" }
-      },
-      "required": ["id", "title"],
-      "additionalProperties": false
-    },
-
-    "Table": {
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "title": { "type": "string" },
-        "fields": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/Field" }
-        }
-      },
-      "required": ["id", "title", "fields"],
-      "additionalProperties": false
-    },
-
-    "Specification": {
-      "type": "object",
-      "properties": {
-        "vertical": { "type": "boolean" },
-        "id": { "type": "string" },
-        "sliceName": { "type": "string" },
-        "title": { "type": "string" },
-        "given": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/SpecificationStep" }
-        },
-        "when": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/SpecificationStep" }
-        },
-        "then": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/SpecificationStep" }
-        },
-        "comments": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/Comment" }
-        },
-        "linkedId": { "type": "string" }
-      },
-      "required": ["id", "title", "given", "when", "then", "linkedId"],
-      "additionalProperties": false
-    },
-
-    "SpecificationStep": {
-      "type": "object",
-      "properties": {
-        "title": { "type": "string" },
-        "tags": {
-          "type": "array",
-          "items": { "type": "string" }
-        },
-        "examples": {
-          "type": "array",
-          "items": { "type": "object" }
-        },
-        "id": { "type": "string" },
-        "index": { "type": "integer" },
-        "specRow": { "type": "integer" },
-        "type": {
-          "type": "string",
-          "enum": ["SPEC_EVENT", "SPEC_COMMAND", "SPEC_READMODEL", "SPEC_ERROR"]
-        },
-        "fields": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/Field" }
-        },
-        "linkedId": { "type": "string" },
-        "expectEmptyList": { "type": "boolean" }
-      },
-      "required": ["title", "id", "type"],
-      "additionalProperties": false
-    },
-
-    "Comment": {
-      "type": "object",
-      "properties": {
-        "description": { "type": "string" }
-      },
-      "required": ["description"],
-      "additionalProperties": false
-    },
-
-    "Actor": {
-      "type": "object",
-      "properties": {
-        "name": { "type": "string" },
-        "authzRequired": { "type": "boolean" }
-      },
-      "required": ["name", "authzRequired"],
-      "additionalProperties": false
-    },
-
-    "Dependency": {
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "type": {
-          "type": "string",
-          "enum": ["INBOUND", "OUTBOUND"]
-        },
-        "title": { "type": "string" },
-        "elementType": {
-          "type": "string",
-          "enum": ["EVENT", "COMMAND", "READMODEL", "SCREEN", "AUTOMATION"]
-        }
-      },
-      "required": ["id", "type", "title", "elementType"],
-      "additionalProperties": false
-    },
-
-    "Field": {
-      "type": "object",
-      "properties": {
-        "name": { "type": "string" },
-        "type": {
-          "type": "string",
-          "enum": [
-            "String",
-            "Boolean",
-            "Double",
-            "Decimal",
-            "Long",
-            "Custom",
-            "Date",
-            "DateTime",
-            "UUID",
-            "Int"
-          ]
-        },
-        "example": {
-          "oneOf": [
-            { "type": "string" },
-            { "type": "object" }
-          ]
-        },
-        "subfields": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/Field" }
-        },
-        "mapping": { "type": "string" },
-        "optional": { "type": "boolean" },
-        "technicalAttribute": { "type": "boolean" },
-        "generated": { "type": "boolean" },
-        "idAttribute": { "type": "boolean" },
-        "schema": { "type": "string" },
-        "cardinality": {
-          "type": "string",
-          "enum": ["List", "Single"]
-        }
-      },
-      "required": ["name", "type"],
-      "additionalProperties": false
-    }
-  }
-}
-```
-
----
-
-## Execution Instructions
-
-1. **Read state files** in order:
-   - Check `analysis/high-level-analysis.json`
-   - Check `analysis/flows.json`
-   - Check flow statuses in `analysis/{folder}/flows.json`
-
-2. **Execute ONE state action** based on conditions above
-
-3. **Write output files**:
+2. **Execute State Action:**
+   - Perform single state action only
    - Use Write tool without asking permission
-   - All files go in `analysis/` folder or subfolders
+   - All output goes in `analysis/` folder or subfolders
    - Follow exact file naming conventions
-   - Ensure valid JSON
+   - Ensure valid JSON matching schema from Claude.md
 
-4. **STOP** after completing the action
+3. **Stop Immediately:**
    - Do not continue to next state
-   - User will re-run for next iteration
+   - Do not perform multiple states in one run
+   - User will re-invoke for next iteration
 
 ---
 
-## Quality Validation (All States)
+## Quality Validation (Before Writing Any File)
 
-Before writing any JSON file:
 - ✅ Valid JSON structure (parseable)
-- ✅ Follows complete schema from CLAUDE.md
+- ✅ Follows complete schema from Claude.md
 - ✅ Business-focused naming (no technical suffixes)
 - ✅ All dependencies reference existing elements
 - ✅ No circular dependencies
-- ✅ Required fields present for each element type
-- ✅ Code references in descriptions (detailed analysis only)
+- ✅ Required fields present for analysis mode:
+  - High-level: empty fields/specs arrays
+  - Detailed: full fields, extracted specs
+- ✅ Code references in descriptions (detailed mode only)
 
 ---
 
 ## Loop Behavior Summary
 
-**Run 1:** No files → Create `analysis/high-level-analysis.json` → Stop
-**Run 2:** High-level exists → Create `analysis/flows.json` with depth 0 flows → Stop
-**Run 3:** First flow "open" → Create `analysis/flow-1/high-level-analysis.json` → Stop
-**Run 4:** Flow has high-level → Create `analysis/flow-1/flows.json` (discover sub-flows) → Stop
-**Run 5:** Sub-flow found → Create `analysis/flow-1/sub-flow-1/high-level-analysis.json` → Stop
-**Run 6:** Sub-flow high-level → Create `analysis/flow-1/sub-flow-1/flows.json` (check for deeper flows) → Stop
-**Run 7:** No deeper flows (empty array) → Create `analysis/flow-1/sub-flow-1/config.json` → Mark completed → Stop
-**Run 8:** All sub-flows completed → Create `analysis/flow-1/config.json` aggregating sub-flows → Mark flow-1 completed → Stop
-**Run N:** All flows recursively completed → Output `<promise>COMPLETE</promise>` → Stop
+| Run | State | Action | Output File |
+|-----|-------|--------|-------------|
+| 1 | No files | High-level system analysis | `analysis/high-level-analysis.json` |
+| 2 | High-level exists | Catalog flows | `analysis/flows.json` |
+| 3 | Flow 1 open | High-level flow 1 analysis | `analysis/flow-1/high-level-analysis.json` |
+| 4 | Flow 1 high-level | Catalog sub-flows | `analysis/flow-1/flows.json` |
+| 5 | Sub-flow found | High-level sub-flow analysis | `analysis/flow-1/sub-flow-1/high-level-analysis.json` |
+| 6 | Sub-flow high-level | Check for deeper flows | `analysis/flow-1/sub-flow-1/flows.json` (empty) |
+| 7 | Leaf flow (empty flows.json) | Detailed analysis | `analysis/flow-1/sub-flow-1/config.json` + mark completed |
+| 8 | All sub-flows completed | Aggregate parent | `analysis/flow-1/config.json` + mark flow-1 completed |
+| N | All flows completed | Report complete | Output: `<promise>COMPLETE</promise>` |
 
-This creates an incremental, resumable, **recursive** analysis process that builds detailed models layer by layer, discovering flows at multiple depths. All analysis files are organized within the `analysis/` folder.
+This creates an incremental, resumable, recursive analysis process that builds detailed models layer by layer.
