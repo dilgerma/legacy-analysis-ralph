@@ -119,6 +119,23 @@ They should capture business rules hidden in the code - do not provide Given / W
 
 ## JSON Output Structure
 
+**CRITICAL: The root structure MUST ALWAYS be:**
+```json
+{
+  "slices": [ /* array of slice objects */ ]
+}
+```
+
+**❌ WRONG - Never create these structures:**
+```json
+{
+  "elements": [...],  // WRONG - no "elements" at root
+  "commands": [...],  // WRONG - no "commands" at root
+  "events": [...]     // WRONG - no "events" at root
+}
+```
+
+**✅ CORRECT Structure:**
 ```json
 {
   "slices": [
@@ -130,7 +147,7 @@ They should capture business rules hidden in the code - do not provide Given / W
       "context": "Brief description of slice purpose",
       "sliceType": "STATE_CHANGE|STATE_VIEW|AUTOMATION",
       "commands": [/* Command elements */],
-      "events": [/* Event elements */], 
+      "events": [/* Event elements */],
       "readmodels": [/* ReadModel elements */],
       "screens": [/* Screen elements */],
       "screenImages": [],
@@ -143,6 +160,12 @@ They should capture business rules hidden in the code - do not provide Given / W
   ]
 }
 ```
+
+**Key Points:**
+- Root object has exactly ONE property: `"slices"`
+- `"slices"` is an array of slice objects
+- Commands, events, readmodels, etc. exist ONLY inside slice objects
+- Never create flat structures or use "elements" as a property name
 
 ### Element Schema
 Each element must include:
@@ -170,16 +193,38 @@ Each element must include:
 
 Before outputting JSON, verify:
 
-- ✅ Each slice contains the correct number and type of elements
+**Structure (CRITICAL):**
+- ✅ Root object has ONLY `"slices"` property (never "elements", "commands", "events", etc.)
+- ✅ Root `"slices"` is an array containing slice objects
+- ✅ JSON structure is valid and parseable
+- ✅ No extra properties beyond schema (schema has `additionalProperties: false`)
+
+**Slice Level:**
+- ✅ Each slice has required properties: `id`, `title`, `sliceType`, `commands`, `events`, `readmodels`, `screens`, `processors`, `tables`, `specifications`
+- ✅ Each slice has `index` (sequential integer starting from 1)
+- ✅ Each slice has `status` (one of: "Created", "Done", "InProgress")
+- ✅ Each slice contains the correct number and type of elements for its sliceType
+- ✅ Commands, events, readmodels, etc. exist ONLY inside slice objects (not at root)
+- ✅ Empty arrays must still be present for all required properties
+
+**Element Level:**
+- ✅ Each element has required properties: `id`, `title`, `fields`, `type`, `dependencies`
+- ✅ Element `type` is one of: COMMAND, EVENT, READMODEL, SCREEN, AUTOMATION
 - ✅ All dependencies reference actual elements within the model
-- ✅ Both STATE_CHANGE and STATE_VIEW slices are present for complete flows
+- ✅ No circular dependencies exist
 - ✅ All fields are business-relevant with appropriate data types
 - ✅ Names follow business terminology conventions
-- ✅ JSON structure is valid and parseable
-- ✅ No circular dependencies exist
+
+**Specifications:**
+- ✅ Each specification has required properties: `id`, `title`, `given`, `when`, `then`, `linkedId`
+- ✅ `linkedId` references the parent slice's `id`
 - ✅ Scenarios are properly defined for each slice type
+- ✅ Business rules only (not simple validations)
+
+**Content:**
+- ✅ Both STATE_CHANGE and STATE_VIEW slices are present for complete flows
 - ✅ Aggregates are clearly identified and consistent
-- ✅ put code references in "description", this can be full qualified class names, modules or packages
+- ✅ Code references in "description" field (full qualified class names, modules, packages)
 
 ---
 

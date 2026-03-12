@@ -232,15 +232,28 @@ analysis/
 
 ## Quality Validation (Before Writing Any File)
 
+**Structure (CRITICAL):**
+- ✅ Root object has ONLY `"slices"` property (never "elements", "commands", "events", etc.)
+- ✅ Root `"slices"` is an array containing slice objects
 - ✅ Valid JSON structure (parseable)
+- ✅ No extra properties beyond schema (schema has `additionalProperties: false`)
+
+**Required Properties:**
+- ✅ Each slice has ALL required properties: `id`, `title`, `sliceType`, `index`, `status`, `commands`, `events`, `readmodels`, `screens`, `processors`, `tables`, `specifications`
+- ✅ Empty arrays `[]` must be present for all required array properties (even in high-level mode)
+- ✅ Each element has: `id`, `title`, `fields`, `type`, `dependencies`
+- ✅ Each specification has: `id`, `title`, `given`, `when`, `then`, `linkedId`
+
+**Content:**
 - ✅ Follows complete schema from Claude.md
 - ✅ Business-focused naming (no technical suffixes)
 - ✅ All dependencies reference existing elements
 - ✅ No circular dependencies
 - ✅ Required fields present for analysis mode:
-  - High-level: empty fields/specs arrays
+  - High-level: empty fields/specs arrays `[]`
   - Detailed: full fields, extracted specs
 - ✅ Code references in descriptions (detailed mode only)
+- ✅ Specification `linkedId` references parent slice's `id`
 
 ---
 
